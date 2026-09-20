@@ -1,0 +1,387 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base"
+  ],
+  "dependencyDashboard": false,
+  "prConcurrentLimit": 40,
+  "tekton": {
+    "fileMatch": [
+      "\\.yaml$",
+      "\\.yml$"
+    ],
+    "includePaths": [
+      ".tekton/**",
+      "task/**",
+      "stepactions/**",
+      "pipelines/enterprise-contract*.yaml"
+    ]
+  },
+  "packageRules": [
+    {
+      "groupName": "tekton-ci",
+      "matchFileNames": [
+        ".tekton/**"
+      ]
+    },
+    {
+      "groupName": "e2e-tests",
+      "matchPackageNames": [
+        "quay.io/redhat-user-workloads/konflux-qe-team-tenant/konflux-e2e/konflux-e2e-tests"
+      ],
+      "matchFileNames": [
+        ".tekton/tasks/e2e-test.yaml"
+      ]
+    },
+    {
+      "groupName": "build",
+      "matchFileNames": [
+        "external-task/apply-tags/**",
+        "external-task/build-image-index-min/**",
+        "external-task/build-image-index/**",
+        "external-task/buildah-oci-ta-min/**",
+        "external-task/buildah-oci-ta/**",
+        "external-task/buildah-remote-oci-ta/**",
+        "external-task/buildah-remote/**",
+        "external-task/buildah/**",
+        "external-task/git-clone-oci-ta-min/**",
+        "external-task/git-clone-oci-ta/**",
+        "external-task/git-clone/**",
+        "external-task/init/**",
+        "external-task/push-dockerfile-oci-ta/**",
+        "external-task/push-dockerfile/**",
+        "external-task/source-build-oci-ta/**",
+        "external-task/source-build/**",
+        "task/generate-labels/**",
+        "task/slack-webhook-notification-oci-ta/**",
+        "task/slack-webhook-notification/**"
+      ]
+    },
+    {
+      "groupName": "build-prefetch",
+      "matchFileNames": [
+        "external-task/prefetch-dependencies-oci-ta-min/**",
+        "external-task/prefetch-dependencies-oci-ta/**",
+        "external-task/prefetch-dependencies/**"
+      ]
+    },
+    {
+      "groupName": "ec",
+      "matchFileNames": [
+        ".tekton/tasks/ec-checks.yaml",
+        "pipelines/enterprise-contract.yaml",
+        "task/tkn-bundle-oci-ta/**",
+        "task/tkn-bundle/**"
+      ]
+    },
+    {
+      "groupName": "integration",
+      "matchFileNames": [
+        "external-task/clair-scan-min/**",
+        "external-task/clair-scan/**",
+        "external-task/clamav-scan-min/**",
+        "external-task/clamav-scan/**",
+        "external-task/deprecated-image-check/**",
+        "external-task/roxctl-scan/**",
+        "external-task/tpa-scan/**",
+        "task/sbom-json-check/**"
+      ]
+    },
+    {
+      "groupName": "preflight",
+      "description": "contains the group of current active preflight tasks",
+      "matchFileNames": [
+        "task/ecosystem-cert-preflight-checks/**"
+      ],
+      "enabled": true
+    },
+    {
+      "groupName": "preflight-deprecated",
+      "description": "contains the group of preflight tasks that no longer work in the konflux ecosystem with the latest preflight container image",
+      "matchFileNames": [
+        "task/ecosystem-cert-preflight-checks/0.1/**"
+      ],
+      "enabled": false
+    },
+    {
+      "groupName": "github-actions",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "schedule": [
+        "on sunday"
+      ],
+      "automerge": true
+    },
+    {
+      "groupName": "go-modules",
+      "matchManagers": [
+        "gomod"
+      ],
+      "schedule": [
+        "on sunday"
+      ],
+      "automerge": true
+    },
+    {
+      "matchPackageNames": [
+        "quay.io/konflux-ci/clamav-db"
+      ],
+      "enabled": false,
+      "groupName": "ignore"
+    },
+    {
+      "groupName": "build-vm-image",
+      "matchFileNames": [
+        "task/build-vm-image/**"
+      ]
+    },
+    {
+      "groupName": "eaas",
+      "matchFileNames": [
+        "stepactions/eaas-copy-secrets-to-ephemeral-cluster/**",
+        "stepactions/eaas-create-ephemeral-cluster-hypershift-aws/**",
+        "stepactions/eaas-get-ephemeral-cluster-credentials/**",
+        "stepactions/eaas-get-latest-openshift-version-by-prefix/**",
+        "stepactions/eaas-get-supported-ephemeral-cluster-versions/**",
+        "task/eaas-provision-space/**"
+      ]
+    },
+    {
+      "groupName": "oci-copy",
+      "matchFileNames": [
+        "task/oci-copy-oci-ta/**",
+        "task/oci-copy/**"
+      ]
+    },
+    {
+      "groupName": "modelcar-oci",
+      "matchFileNames": [
+        "task/modelcar-oci-ta/**"
+      ]
+    },
+    {
+      "groupName": "opm",
+      "matchFileNames": [
+        "task/operator-sdk-generate-bundle/**",
+        "task/opm-get-bundle-version/**",
+        "task/opm-render-bundles/**"
+      ]
+    },
+    {
+      "groupName": "konflux-test-tasks",
+      "description": "Updated and verified in konflux-test-tasks so should be ignored here",
+      "matchFileNames": [
+        "task/clair-scan/**",
+        "task/clamav-scan/**",
+        "task/deprecated-image-check/**"
+      ],
+      "enabled": false
+    },
+    {
+      "groupName": "konflux-sast-tasks",
+      "description": "Updated and verified in konflux-sast-tasks so should be ignored here",
+      "matchFileNames": [
+        "task/coverity-availability-check/**",
+        "task/sast-coverity-check-oci-ta/**",
+        "task/sast-coverity-check/**",
+        "task/sast-shell-check-oci-ta/**",
+        "task/sast-shell-check/**",
+        "task/sast-snyk-check-oci-ta/**",
+        "task/sast-snyk-check/**",
+        "task/sast-unicode-check-oci-ta/**",
+        "task/sast-unicode-check/**"
+      ],
+      "enabled": false
+    },
+    {
+      "groupName": "buildpack",
+      "matchFileNames": [
+        "task/build-paketo-builder-oci-ta/**"
+      ]
+    },
+    {
+      "groupName": "vanguard",
+      "matchFileNames": [
+        "external-task/rpms-signature-scan/**",
+        "pipelines/tekton-bundle-builder-oci-ta/**",
+        "pipelines/tekton-bundle-builder/**",
+        "task/build-helm-chart-oci-ta/**"
+      ]
+    },
+    {
+      "description": "build-helm-chart-oci-ta 0.3 bash script requires yq from quay.io/konflux-ci/tools; newer tools images no longer ship yq. Task version will be deprecated soon in favor of 0.4.",
+      "matchPackageNames": [
+        "quay.io/konflux-ci/tools"
+      ],
+      "matchFileNames": [
+        "task/build-helm-chart-oci-ta/0.3/build-helm-chart-oci-ta.yaml"
+      ],
+      "enabled": false
+    },
+    {
+      "groupName": "verify-source",
+      "matchFileNames": [
+        "task/verify-source/**"
+      ]
+    },
+    {
+      "groupName": "mobster",
+      "matchFileNames": [
+        "task/**"
+      ],
+      "matchManagers": [
+        "regex"
+      ],
+      "matchPackageNames": [
+        "quay.io/konflux-ci/mobster"
+      ]
+    },
+    {
+      "groupName": "ko-builder",
+      "matchFileNames": [
+        "task/ko-oci-ta/**"
+      ]
+    },
+    {
+      "groupName": "package-operator",
+      "matchFileNames": [
+        "pipelines/package-operator-package/**",
+        "task/package-operator-package-oci-ta/**",
+        "task/package-operator-package/**"
+      ]
+    },
+    {
+      "groupName": "sast",
+      "matchFileNames": [
+        "external-task/coverity-availability-check/**",
+        "external-task/sast-coverity-check-oci-ta/**",
+        "external-task/sast-coverity-check/**",
+        "external-task/sast-shell-check-oci-ta-min/**",
+        "external-task/sast-shell-check-oci-ta/**",
+        "external-task/sast-shell-check/**",
+        "external-task/sast-snyk-check-oci-ta/**",
+        "external-task/sast-snyk-check/**",
+        "external-task/sast-unicode-check-oci-ta-min/**",
+        "external-task/sast-unicode-check-oci-ta/**",
+        "external-task/sast-unicode-check/**"
+      ]
+    },
+    {
+      "groupName": "operator",
+      "matchFileNames": [
+        "external-task/fbc-fips-check-matrix-based-oci-ta/**",
+        "external-task/fbc-fips-check-oci-ta/**",
+        "external-task/fbc-fips-check/**",
+        "external-task/fbc-fips-prepare-oci-ta/**",
+        "external-task/fbc-inject-lifecycle-oci-ta/**",
+        "external-task/fbc-target-index-pruning-check/**",
+        "external-task/fips-operator-bundle-check-oci-ta/**",
+        "external-task/fips-operator-bundle-check/**",
+        "external-task/github-sarif-upload/**",
+        "external-task/run-opm-command-oci-ta/**",
+        "external-task/validate-fbc/**",
+        "stepactions/fips-operator-check-step-action/**"
+      ]
+    }
+  ],
+  "postUpdateOptions": [
+    "gomodTidy"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "^task/[\\w-]+/[0-9.]+/[\\w-]+\\.yaml$"
+      ],
+      "matchStrings": [
+        "value: (?<depName>quay\\.io/konflux-ci/konflux-build-cli[^:]*):(?<currentValue>[^@]*)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "autoReplaceStringTemplate": "value: {{depName}}{{#if newValue}}:{{newValue}}{{/if}}{{#if newDigest}}@{{newDigest}}{{/if}}",
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "^external-task/.*/.*/.*\\.yaml$"
+      ],
+      "matchStrings": [
+        "(?:# renovate: bumpVersion=(?<bumpVersion>true|false)\\s)?task_bundle: (?<depName>quay\\.io/konflux-ci/(?:konflux-vanguard|tekton-catalog)/[^:]+):(?<currentValue>[^@]*)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "semver-coerced",
+      "extractVersionTemplate": "{{#unless (equals bumpVersion 'true')}}{{currentValue}}{{/unless}}"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        ".github/workflows/run-task-tests.yaml"
+      ],
+      "matchStrings": [
+        "ref:\\s+(?<currentDigest>[a-f0-9]{40})"
+      ],
+      "currentValueTemplate": "main",
+      "depNameTemplate": "konflux-ci",
+      "packageNameTemplate": "https://github.com/konflux-ci/konflux-ci",
+      "datasourceTemplate": "git-refs"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "^task/.*/recipe\\.yaml$",
+        "^task/.+/patch\\.yaml$"
+      ],
+      "matchStrings": [
+        "(?:image: |tooling-image=)(?:['\"])?(?<depName>[0-9a-z./-]+)(?::(?<currentValue>[0-9a-z.-]+))?@(?<currentDigest>sha256:[a-f0-9]{64})(?:['\"])?"
+      ],
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "^task/build-vm-image/.*/build-vm-image.yaml"
+      ],
+      "matchStrings": [
+        "BUILDAH_IMAGE\\s*\\n\\s*value:\\s*['\"]?(?<depName>[^'\":]+):(?<currentValue>[^'\":\\s]+)['\"]?"
+      ],
+      "depNameTemplate": "registry.access.redhat.com/ubi9/buildah",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "redhat"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "^task/[\\w-]+/[0-9.]+/[\\w-]+\\.yaml$"
+      ],
+      "matchStrings": [
+        "image: (?<depName>quay\\.io/konflux-ci/mobster[^:]*):(?<currentValue>[^@]*)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "autoReplaceStringTemplate": "image: {{depName}}{{#if newValue}}:{{newValue}}{{/if}}{{#if newDigest}}@{{newDigest}}{{/if}}",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "redhat"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "\\.go$"
+      ],
+      "matchStrings": [
+        "(?<depName>quay\\.io/conforma/tekton-task):(?<currentValue>[a-zA-Z0-9._-]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ],
+  "ignorePaths": [
+    ".github/actions/install-tkn/action.yaml",
+    ".github/resources/workspace-template.yaml",
+    ".github/scripts/test_tekton_tasks.sh",
+    ".github/workflows/check-kustomize-build.yaml",
+    ".github/workflows/check-ta.yaml",
+    ".github/workflows/check-task-migration.yaml",
+    ".github/workflows/checkton.yaml",
+    ".github/workflows/run-task-tests.yaml",
+    ".github/workflows/task-lint.yaml",
+    ".github/workflows/update-shared-ci.yaml",
+    ".github/workflows/versioning.yaml"
+  ]
+}

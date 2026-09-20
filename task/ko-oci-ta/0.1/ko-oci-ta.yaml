@@ -1,0 +1,289 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: ko-oci-ta
+  annotations:
+    tekton.dev/categories: Image Build
+    tekton.dev/displayName: Build and upload container image using ko oci
+      trusted artifacts
+    tekton.dev/pipelines.minVersion: 0.17.0
+    tekton.dev/platforms: linux/amd64,linux/arm64
+    tekton.dev/tags: image-build
+  labels:
+    app.kubernetes.io/version: "0.1"
+    build.appstudio.redhat.com/build_type: ko
+spec:
+  description: This Task builds source into a container image using ko.
+  params:
+    - name: ADDITIONAL_BASE_IMAGES
+      description: Additional base image references to include to the SBOM.
+        Array of image_reference_with_digest strings
+      type: array
+      default: []
+    - name: COMMIT_SHA
+      description: The image is built from this commit.
+      type: string
+      default: ""
+    - name: IMAGE_EXPIRES_AFTER
+      description: Delete image tag after specified time. Empty means to keep
+        the image tag. Time values could be something like 1h, 2d, 3w for
+        hours, days, and weeks, respectively.
+      type: string
+      default: ""
+    - name: IMAGE_NAMING_STRATEGY
+      description: One of --base-import-paths, --bare, or --preserve-import-paths
+      default: --base-import-paths
+    - name: IMPORT_PATH
+      description: import path of package main
+      default: .
+    - name: KO_DEFAULTBASEIMAGE
+      description: base image for ko build
+      default: ""
+    - name: KO_DOCKER_REPO
+      description: Container repository where to push images built with ko
+      default: ""
+    - name: SOURCE_ARTIFACT
+      description: The Trusted Artifact URI pointing to the artifact with
+        the application source code.
+      type: string
+    - name: TAG
+      description: Tag of PR to add to image
+      type: string
+    - name: caTrustConfigMapKey
+      description: The name of the key in the ConfigMap that contains the
+        CA bundle data.
+      type: string
+      default: ca-bundle.crt
+    - name: caTrustConfigMapName
+      description: The name of the ConfigMap to read CA bundle data from.
+      type: string
+      default: trusted-ca
+  results:
+    - name: IMAGE_DIGEST
+      description: Digest of the image just built
+    - name: IMAGE_REF
+      description: Image reference of the built image
+    - name: IMAGE_URL
+      description: Image repository and tag where the built image was pushed
+    - name: SBOM_BLOB_URL
+      description: Reference of SBOM blob digest to enable digest-based verification
+        from provenance
+  volumes:
+    - name: trusted-ca
+      configMap:
+        items:
+          - key: $(params.caTrustConfigMapKey)
+            path: ca-bundle.crt
+        name: $(params.caTrustConfigMapName)
+        optional: true
+    - name: workdir
+      emptyDir: {}
+  stepTemplate:
+    computeResources:
+      limits:
+        memory: 4Gi
+      requests:
+        cpu: "1"
+        memory: 4Gi
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+      - mountPath: /var/workdir
+        name: workdir
+  steps:
+    - name: use-trusted-artifact
+      image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:fb7ce11be542bc524be2c5ea78fd73c87a8a8cbf333905fcdf8b7cb700ad178a
+      computeResources:
+        requests:
+          memory: 4Gi
+          cpu: 50m
+        limits:
+          memory: 4Gi
+      args:
+        - use
+        - $(params.SOURCE_ARTIFACT)=/var/workdir/source
+      volumeMounts:
+        - mountPath: /etc/pki/tls/certs/ca-custom-bundle.crt
+          name: trusted-ca
+          readOnly: true
+          subPath: ca-bundle.crt
+    - name: build
+      image: quay.io/konflux-ci/ko-builder:latest@sha256:6dd07b33afbf322122524cd0b5e69bbe4b3fa260467947e0b822dc6524744cbd
+      workingDir: /var/workdir/source
+      computeResources:
+        requests:
+          memory: 4Gi
+          cpu: "3"
+        limits:
+          memory: 4Gi
+      volumeMounts:
+        - mountPath: /etc/pki/tls/certs/ca-custom-bundle.crt
+          name: trusted-ca
+          readOnly: true
+          subPath: ca-bundle.crt
+      env:
+        - name: COMMIT_SHA
+          value: $(params.COMMIT_SHA)
+        - name: DEFAULT_BASEIMAGE
+          value: $(params.KO_DEFAULTBASEIMAGE)
+        - name: DOCKER_CONFIG
+          value: /opt/app-root/src/.docker
+        - name: GOFLAGS
+          value: -buildvcs=false
+        - name: IMAGE_EXPIRES_AFTER
+          value: $(params.IMAGE_EXPIRES_AFTER)
+        - name: IMAGE_NAMING_STRATEGY
+          value: $(params.IMAGE_NAMING_STRATEGY)
+        - name: IMPORT_PATH
+          value: $(params.IMPORT_PATH)
+        - name: KO_DOCKER_REPO
+          value: $(params.KO_DOCKER_REPO)
+        - name: TAG
+          value: $(params.TAG)
+        - name: TASKRUN_NAME
+          value: $(context.taskRun.name)
+      script: |
+        #!/bin/bash
+        set -euo pipefail
+
+        if [ "${IMAGE_NAMING_STRATEGY}" != "--base-import-paths" ] && [ "${IMAGE_NAMING_STRATEGY}" != "--bare" ] && [ "${IMAGE_NAMING_STRATEGY}" != "--preserve-import-paths" ]; then
+            echo "Invalid value specified for IMAGE_NAMING_STRATEGY: ${IMAGE_NAMING_STRATEGY}"
+            exit 1
+        fi
+
+        [ -n "${DEFAULT_BASEIMAGE}" ] && KO_DEFAULTBASEIMAGE="${DEFAULT_BASEIMAGE}" && export KO_DEFAULTBASEIMAGE
+
+        labels="architecture=$(uname -m),vcs-type=git,build-date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+        [ -n "${COMMIT_SHA}" ] && labels+=",vcs-ref=${COMMIT_SHA}"
+        [ -n "${IMAGE_EXPIRES_AFTER}" ] && labels+=",quay.expires-after=${IMAGE_EXPIRES_AFTER}"
+
+        args=("${IMAGE_NAMING_STRATEGY}" -t "${TASKRUN_NAME}" --image-label "${labels}" --sbom=none)
+        [ -n "${TAG}" ] && args+=(-t "${TAG}")
+
+        ko build "${args[@]}" "${IMPORT_PATH}" 2>&1 | tee /tmp/build.log
+
+        digest=$(grep Published /tmp/build.log | grep -v SBOM | awk '{print $4}' | awk -F@ '{print $2}')
+        url=$(grep Publishing /tmp/build.log | awk '{print $4}')
+        ref="${url}@${digest}"
+
+        echo "IMAGE_DIGEST=${digest}"
+        echo "IMAGE_REF=${ref}"
+        echo "IMAGE_URL=${url}"
+
+        echo -n "${digest}" >"$(results.IMAGE_DIGEST.path)"
+        echo -n "${ref}" >"$(results.IMAGE_REF.path)"
+        echo -n "${url}" >"$(results.IMAGE_URL.path)"
+        echo "Completed."
+    - name: prepare-sbom
+      image: quay.io/konflux-ci/mobster@sha256:ae9455b489a96d0227171778e115744ffa880c55dafda16886d931de78d37a66
+      args:
+        - --additional-base-images
+        - $(params.ADDITIONAL_BASE_IMAGES[*])
+      workingDir: /var/workdir/source
+      computeResources:
+        limits:
+          memory: 512Mi
+        requests:
+          memory: 512Mi
+          cpu: 100m
+      securityContext:
+        runAsUser: 0
+      script: |
+        #!/bin/bash
+        set -euo pipefail
+
+        echo "[$(date --utc -Ins)] Prepare SBOM"
+
+        # Convert Tekton array params into Mobster params
+        ADDITIONAL_BASE_IMAGES=()
+        while [[ $# -gt 0 ]]; do
+          case $1 in
+          --additional-base-images)
+            shift
+            while [[ $# -gt 0 && $1 != --* ]]; do
+              ADDITIONAL_BASE_IMAGES+=("$1")
+              shift
+            done
+            ;;
+          *)
+            echo "unexpected argument: $1" >&2
+            exit 2
+            ;;
+          esac
+        done
+
+        echo "[$(date --utc -Ins)] Generate SBOM with mobster"
+
+        mobster_args=(
+          generate
+          --output sbom.json
+        )
+
+        image_pullspec="$(cat "$(results.IMAGE_URL.path)")"
+        echo "IMAGE_PULLSPEC=${image_pullspec}"
+
+        mobster_args+=(
+          oci-image
+          --image-pullspec "${image_pullspec}"
+        )
+
+        for ADDITIONAL_BASE_IMAGE in "${ADDITIONAL_BASE_IMAGES[@]}"; do
+          mobster_args+=(--additional-base-image "$ADDITIONAL_BASE_IMAGE")
+        done
+
+        mobster "${mobster_args[@]}"
+
+        echo "[$(date --utc -Ins)] End prepare-sboms"
+    - name: upload-sbom
+      image: quay.io/konflux-ci/task-runner:1.6.0@sha256:1abfe4e50d4e961d0fd9790202565f93ee650fe8dfc50932c94989acba10485f
+      workingDir: /var/workdir/source
+      securityContext:
+        runAsUser: 0
+        runAsNonRoot: false
+      volumeMounts:
+        - mountPath: /etc/pki/tls/certs/ca-custom-bundle.crt
+          name: trusted-ca
+          readOnly: true
+          subPath: ca-bundle.crt
+      computeResources:
+        limits:
+          memory: 512Mi
+        requests:
+          memory: 512Mi
+          cpu: 100m
+      script: |
+        #!/bin/bash
+        set -euo pipefail
+
+        echo "[$(date --utc -Ins)] Upload SBOM"
+
+        # use ca bundle, if mounted
+        ca_bundle=/mnt/trusted-ca/ca-bundle.crt
+        if [ -f "$ca_bundle" ]; then
+          echo "INFO: Using mounted CA bundle: $ca_bundle"
+          cp -vf $ca_bundle /etc/pki/ca-trust/source/anchors
+          update-ca-trust
+        fi
+
+        image="$(cat "$(results.IMAGE_REF.path)")"
+
+        # Pre-select the correct credentials to work around cosign not supporting the containers-auth.json spec
+        mkdir -p /tmp/auth && select-oci-auth "$(cat "$(results.IMAGE_REF.path)")" > /tmp/auth/config.json
+        export DOCKER_CONFIG=/tmp/auth
+        echo "Pushing sbom to registry"
+        if ! retry cosign attach sbom --sbom sbom.json --type "spdx" "$image"
+        then
+            echo "Failed to push sbom to registry"
+            exit 1
+        fi
+        # Remove digest from image reference
+        ref="${image/@*}"
+        # Remove tag from ref while allowing registry to contain a port number.
+        # shellcheck disable=SC2001
+        ref="$(echo "${ref}" | sed 's_/\(.*\):\(.*\)_/\1_g')"
+
+        sbom_digest="$(sha256sum sbom.json | cut -d' ' -f1)"
+        # The SBOM_BLOB_URL is created by `cosign attach sbom`.
+        echo -n "${ref}@sha256:${sbom_digest}" | tee "$(results.SBOM_BLOB_URL.path)"
+
+        echo
+        echo "[$(date --utc -Ins)] End upload-sbom"

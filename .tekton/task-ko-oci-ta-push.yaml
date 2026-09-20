@@ -1,0 +1,37 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://github.com/__ORG__/ko-catalog?rev={{revision}}
+    build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/target_branch: '{{target_branch}}'
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "main" && ( "task/ko-oci-ta/***".pathChanged() || ".tekton/task-ko-oci-ta-push.yaml".pathChanged() || ".tekton/pipelines/build-tekton-bundle.yaml".pathChanged() )
+  labels:
+    appstudio.openshift.io/application: ko-catalog
+    appstudio.openshift.io/component: task-ko-oci-ta
+    pipelines.appstudio.openshift.io/type: build
+  name: task-ko-oci-ta-on-push
+  namespace: __TENANT_NAMESPACE__
+spec:
+  params:
+  - name: git-url
+    value: '{{source_url}}'
+  - name: revision
+    value: '{{revision}}'
+  - name: output-image
+    value: quay.io/redhat-user-workloads/__TENANT_NAMESPACE__/ko-catalog/ko-oci-ta:{{revision}}
+  - name: dockerfile
+    value: Containerfile
+  - name: path-context
+    value: task/ko-oci-ta
+  pipelineRef:
+    name: build-tekton-bundle
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-task-ko-oci-ta
+  workspaces:
+  - name: git-auth
+    secret:
+      secretName: '{{ git_auth_secret }}'
+status: {}
